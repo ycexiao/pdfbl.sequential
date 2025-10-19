@@ -1,0 +1,18 @@
+{
+  "maintainer_name": "Simon Billinge",
+  "maintainer_email": "sb2896@columbia.edu",
+  "maintainer_github_username": "sbillinge",
+  "contributors": "members of the Billinge Group and PDF beamline at NSLS-II",
+  "license_holders": "Simon Billinge",
+  "project_name": "pdfbl.sequential",
+  "github_username_or_orgname": "pdf-bl",
+  "github_repo_name": "pdfbl.sequential",
+  "conda_pypi_package_dist_name": "pdfbl.sequential",
+  "package_dir_name": "pdfbl.sequential",
+  "project_short_description": "Automated sequential refinements of PDF data",
+  "project_keywords": "diffraction, PDF, X-ray, neutron, nsls-ii",
+  "minimum_supported_python_version": "3.12",
+  "maximum_supported_python_version": "3.14",
+  "project_needs_c_code_compiled": "No",
+  "project_has_gui_tests": "No"
+}
