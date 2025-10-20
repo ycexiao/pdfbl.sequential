@@ -38,7 +38,7 @@
 
 Automated sequential refinements of PDF data
 
-* LONGER DESCRIPTION HERE
+Scripts for running sequential PDF refinements using diffpy.cmi automatically
 
 For more information about the pdfbl.sequential library, please consult our `online documentation <https://pdf-bl.github.io/pdfbl.sequential>`_.
 
