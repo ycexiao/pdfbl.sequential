@@ -1,47 +1,75 @@
-import numpy
+import sys
+from pathlib import Path
+
+from scipy.optimize import least_squares
+
+from pdfbl.sequential.pdfadapter import PDFAdapter
+
+sys.path.append(str(Path(__file__).parent / "diffpycmi_scripts.py"))
+from diffpycmi_scripts import make_recipe  # noqa: E402
 
 
-def test_payload(pdfadapter_and_inputs):
-    # C1: Use adapter.apply_payload.
-    #   Expect the instance to have a new payload.
-    expected_payload = {
-        "scale": 0.4,
-        "a": 3.52,
-        "Uiso_0": 0.005,
-        "delta2": 2.0,
+def test_pdfadapter():
+    # diffpy_cmi fitting
+    structure_path = Path(__file__).parent / "data" / "Ni.cif"
+    profile_path = Path(__file__).parent / "data" / "Ni.gr"
+    diffpycmi_recipe = make_recipe(str(structure_path), str(profile_path))
+    diffpycmi_recipe.fithooks[0].verbose = 0
+    diffpycmi_recipe.fix("all")
+    tags = ["lat", "scale", "adp", "d2", "all"]
+    for tag in tags:
+        diffpycmi_recipe.free(tag)
+        least_squares(
+            diffpycmi_recipe.residual,
+            diffpycmi_recipe.values,
+            x_scale="jac",
+        )
+    diffpy_pv_dict = {}
+    for pname, parameter in diffpycmi_recipe._parameters.items():
+        diffpy_pv_dict[pname] = parameter.value
+    # pdfadapter fitting
+    adapter = PDFAdapter()
+    adapter.init_profile(
+        str(profile_path), xmin=1.5, xmax=50, dx=0.01, qmax=25, qmin=0.1
+    )
+    adapter.init_structures([str(structure_path)])
+    adapter.init_contribution()
+    adapter.init_recipe()
+    initial_pdfadapter_pv_dict = {
+        "s0": 0.4,
         "qdamp": 0.04,
         "qbroad": 0.02,
+        "a_1": 3.52,
+        "Uiso_0_1": 0.005,
+        "delta2_1": 2,
     }
-    adapter, _ = pdfadapter_and_inputs
-    adapter.apply_payload(expected_payload)
-    current_payload = adapter.get_payload()
-    current_payload = {key: current_payload[key] for key in expected_payload}
-    assert current_payload == expected_payload
-    # C2: Use adapter.apply_payload.
-    #  Expect the residual to change after applying a new payload
-    residual_before = adapter._residual()
-    adapter.apply_payload({"scale": 0.5})
-    residual_after = adapter._residual()
-    assert sum(residual_before) != sum(residual_after)
-
-
-def test_action(pdfadapter_and_inputs):
-    # C1: Use different initial payload values to test the optimization.
-    #  Expect the final optimized value to be the same.
-    adapter, _ = pdfadapter_and_inputs
-    adapter.apply_payload({"scale": 0.4})
-    adapter.action_func_factory(["scale"])()
-    pv_dict_1 = adapter._get_parameter_values()
-    adapter.apply_payload({"scale": 0.6})
-    adapter.action_func_factory(["scale"])()
-    pv_dict_2 = adapter._get_parameter_values()
-    for key in pv_dict_1:
-        assert numpy.isclose(pv_dict_1[key], pv_dict_2[key], rtol=1e-5)
-
-
-def test_clone(pdfadapter_and_inputs):
-    # C5: clone the adapter.
-    #  Expect the cloned adapter to have the same payload as the original
-    adapter, _ = pdfadapter_and_inputs
-    new_adapter = adapter.clone()
-    assert new_adapter.get_payload() == adapter.get_payload()
+    adapter.set_initial_variable_values(initial_pdfadapter_pv_dict)
+    adapter.refine_variables(
+        [
+            "a_1",
+            "s0",
+            "Uiso_0_1",
+            "delta2_1",
+            "qdamp",
+            "qbroad",
+        ]
+    )
+    diffpyname_to_adaptername = {
+        "fcc_Lat": "a_1",
+        "s1": "s0",
+        "fcc_ADP": "Uiso_0_1",
+        "Ni_Delta2": "delta2_1",
+        "Calib_Qdamp": "qdamp",
+        "Calib_Qbroad": "qbroad",
+    }
+    pdfadapter_pv_dict = {}
+    for pname, parameter in adapter.recipe._parameters.items():
+        pdfadapter_pv_dict[pname] = parameter.value
+    for diffpy_pname, adapter_pname in diffpyname_to_adaptername.items():
+        assert (
+            abs(
+                diffpy_pv_dict[diffpy_pname]
+                - pdfadapter_pv_dict[adapter_pname]
+            )
+            < 1e-5
+        )
