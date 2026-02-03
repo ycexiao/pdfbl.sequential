@@ -16,13 +16,13 @@ from pdfbl.sequential.pdfadapter import PDFAdapter
 plt.style.use(all_styles["bg-style"])
 
 
-class SequentialPDFFitRunner:
+class SequentialCMIRunner:
     def __init__(self):
         self.input_files_known = []
         self.input_files_completed = []
         self.input_files_running = []
         self.adapter = PDFAdapter()
-        self.plot_data = {}
+        self.data_for_plot = {}
 
     def load_inputs(
         self,
@@ -34,7 +34,7 @@ class SequentialPDFFitRunner:
         whether_plot_ycalc=False,
         plot_variable_names=None,
         plot_result_entry_names=None,
-        refine_variable_names=None,
+        refinable_variable_names=None,
         initial_variable_values=None,
         xmin=None,
         xmax=None,
@@ -52,7 +52,7 @@ class SequentialPDFFitRunner:
             "dx": dx,
             "qmin": qmin,
             "qmax": qmax,
-            "refine_variable_names": refine_variable_names or [],
+            "refinable_variable_names": refinable_variable_names or [],
             "initial_variable_values": initial_variable_values or {},
             "whether_plot_y": whether_plot_y,
             "whether_plot_ycalc": whether_plot_ycalc,
@@ -66,7 +66,7 @@ class SequentialPDFFitRunner:
                 label="ycalc",
                 color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
             )
-            self.plot_data["ycalc"] = {
+            self.data_for_plot["ycalc"] = {
                 "line": line,
                 "xdata": Queue(),
                 "ydata": Queue(),
@@ -77,7 +77,7 @@ class SequentialPDFFitRunner:
                 label="y",
                 color=plt.rcParams["axes.prop_cycle"].by_key()["color"][1],
             )
-            self.plot_data["y"] = {
+            self.data_for_plot["y"] = {
                 "line": line,
                 "xdata": Queue(),
                 "ydata": Queue(),
@@ -85,7 +85,7 @@ class SequentialPDFFitRunner:
         elif whether_plot_ycalc:
             fig, ax = plt.subplots()
             (line,) = ax.plot([], [], label="ycalc")
-            self.plot_data["ycalc"] = {
+            self.data_for_plot["ycalc"] = {
                 "line": line,
                 "xdata": Queue(),
                 "ydata": Queue(),
@@ -93,26 +93,26 @@ class SequentialPDFFitRunner:
         elif whether_plot_y:
             fig, ax = plt.subplots()
             (line,) = ax.plot([], [], label="y")
-            self.plot_data["y"] = {
+            self.data_for_plot["y"] = {
                 "line": line,
                 "xdata": Queue(),
                 "ydata": Queue(),
             }
         if plot_variable_names:
-            self.plot_data["variables"] = {}
+            self.data_for_plot["variables"] = {}
             for var_name in plot_variable_names:
                 fig, ax = plt.subplots()
                 (line,) = ax.plot([], [], label=var_name, marker="o")
-                self.plot_data["variables"][var_name] = {
+                self.data_for_plot["variables"][var_name] = {
                     var_name: {"line": line, "buffer": [], "ydata": Queue()}
                 }
                 fig.suptitle(f"Variable: {var_name}")
         if plot_result_entry_names:
-            self.plot_data["result_entries"] = {}
+            self.data_for_plot["result_entries"] = {}
             for entry_name in plot_result_entry_names:
                 fig, ax = plt.subplots()
                 (line,) = ax.plot([], [], label=entry_name, marker="o")
-                self.plot_data["result_entries"][entry_name] = {
+                self.data_for_plot["result_entries"][entry_name] = {
                     entry_name: {"line": line, "buffer": [], "ydata": Queue()}
                 }
                 fig.suptitle(f"Result Entry: {entry_name}")
@@ -169,7 +169,7 @@ class SequentialPDFFitRunner:
         }
         self.last_result_variables_values = last_result_variables_values
 
-    def run_one_round(self):
+    def run_one_cycle(self):
         self.check_for_new_data()
         xmin = self.inputs["xmin"]
         xmax = self.inputs["xmax"]
@@ -179,7 +179,7 @@ class SequentialPDFFitRunner:
         structure_path = self.inputs["structure_path"]
         output_result_dir = self.inputs["output_result_dir"]
         initial_variable_values = self.inputs["initial_variable_values"]
-        refine_variable_names = self.inputs["refine_variable_names"]
+        refinable_variable_names = self.inputs["refinable_variable_names"]
         if not self.input_files_running:
             return None
         for input_file in self.input_files_running:
@@ -191,7 +191,7 @@ class SequentialPDFFitRunner:
                 qmin=qmin,
                 qmax=qmax,
             )
-            self.adapter.init_structures(structure_path)
+            self.adapter.init_structures([structure_path])
             self.adapter.init_contribution()
             self.adapter.init_recipe()
             if not hasattr(self, "last_result_variables_values"):
@@ -199,9 +199,9 @@ class SequentialPDFFitRunner:
             self.adapter.set_initial_variable_values(
                 self.last_result_variables_values
             )
-            if refine_variable_names is None:
-                refine_variable_names = list(initial_variable_values.keys())
-            self.adapter.refine_variables(refine_variable_names)
+            if refinable_variable_names is None:
+                refinable_variable_names = list(initial_variable_values.keys())
+            self.adapter.refine_variables(refinable_variable_names)
             results = self.adapter.save_results(
                 filename=str(
                     Path(output_result_dir) / f"{input_file.stem}_result.json"
@@ -213,25 +213,25 @@ class SequentialPDFFitRunner:
                 for name, pack in results["variables"].items()
             }
             self.input_files_completed.append(input_file)
-            if "ycalc" in self.plot_data:
+            if "ycalc" in self.data_for_plot:
                 xdata = self.adapter.recipe.pdfcontribution.profile.x
                 ydata = self.adapter.recipe.pdfcontribution.profile.ycalc
-                self.plot_data["ycalc"]["xdata"].put(xdata)
-                self.plot_data["ycalc"]["ydata"].put(ydata)
-            if "y" in self.plot_data:
+                self.data_for_plot["ycalc"]["xdata"].put(xdata)
+                self.data_for_plot["ycalc"]["ydata"].put(ydata)
+            if "y" in self.data_for_plot:
                 xdata = self.adapter.recipe.pdfcontribution.profile.x
                 ydata = self.adapter.recipe.pdfcontribution.profile.y
-                self.plot_data["y"]["xdata"].put(xdata)
-                self.plot_data["y"]["ydata"].put(ydata)
-            for var_name in self.plot_data.get("variables", {}):
+                self.data_for_plot["y"]["xdata"].put(xdata)
+                self.data_for_plot["y"]["ydata"].put(ydata)
+            for var_name in self.data_for_plot.get("variables", {}):
                 new_value = self.adapter.recipe._parameters[var_name].value
-                self.plot_data["variables"][var_name][var_name]["ydata"].put(
-                    new_value
-                )
-            for entry_name in self.plot_data.get("result_entries", {}):
+                self.data_for_plot["variables"][var_name][var_name][
+                    "ydata"
+                ].put(new_value)
+            for entry_name in self.data_for_plot.get("result_entries", {}):
                 fit_results = FitResults(self.adapter.recipe)
                 entry_value = getattr(fit_results, entry_name)
-                self.plot_data["result_entries"][entry_name][entry_name][
+                self.data_for_plot["result_entries"][entry_name][entry_name][
                     "ydata"
                 ].put(entry_value)
             print(f"Completed processing {input_file.name}.")
@@ -239,17 +239,17 @@ class SequentialPDFFitRunner:
 
     def run(self, mode: Literal["batch", "stream"]):
         if mode == "batch":
-            self.run_one_round()
+            self.run_one_cycle()
         elif mode == "stream":
             stop_event = threading.Event()
             session = PromptSession()
-            if self.plot_data is not None:
+            if self.data_for_plot is not None:
                 plt.ion()
                 plt.pause(1)  # Update plot every 1s
 
             def stream_loop():
                 while not stop_event.is_set():
-                    self.run_one_round()
+                    self.run_one_cycle()
                     stop_event.wait(1)  # Check for new data every 1 second
 
             def input_loop():
@@ -275,7 +275,7 @@ class SequentialPDFFitRunner:
             fit_thread = threading.Thread(target=stream_loop)
             fit_thread.start()
             while not stop_event.is_set():
-                for key, plot_pack in self.plot_data.items():
+                for key, plot_pack in self.data_for_plot.items():
                     if key in ["ycalc", "y"]:
                         line = plot_pack["line"]
                         if not plot_pack["xdata"].empty():

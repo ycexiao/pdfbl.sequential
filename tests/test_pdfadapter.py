@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import numpy
 from scipy.optimize import least_squares
 
 from pdfbl.sequential.pdfadapter import PDFAdapter
@@ -10,6 +11,8 @@ from diffpycmi_scripts import make_recipe  # noqa: E402
 
 
 def test_pdfadapter():
+    # C1: Run the same fit with pdfadapter and diffpy_cmi
+    #   Expect the refined parameters to be the same within 1e-5
     # diffpy_cmi fitting
     structure_path = Path(__file__).parent / "data" / "Ni.cif"
     profile_path = Path(__file__).parent / "data" / "Ni.gr"
@@ -66,10 +69,8 @@ def test_pdfadapter():
     for pname, parameter in adapter.recipe._parameters.items():
         pdfadapter_pv_dict[pname] = parameter.value
     for diffpy_pname, adapter_pname in diffpyname_to_adaptername.items():
-        assert (
-            abs(
-                diffpy_pv_dict[diffpy_pname]
-                - pdfadapter_pv_dict[adapter_pname]
-            )
-            < 1e-5
+        assert numpy.isclose(
+            diffpy_pv_dict[diffpy_pname],
+            pdfadapter_pv_dict[adapter_pname],
+            atol=1e-5,
         )

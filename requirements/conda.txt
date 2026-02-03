@@ -3,4 +3,5 @@ diffpy.cmi
 scipy
 prompt_toolkit
 matplotlib
-bg_mpl_stylesheets
+bg-mpl-stylesheets
+psutil

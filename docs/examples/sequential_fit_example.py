@@ -1,12 +1,12 @@
-from pdfbl.sequential.sequential_runner import SequentialPDFFitRunner
+from pdfbl.sequential.sequential_cmi_runner import SequentialCMIRunner
 
-sts = SequentialPDFFitRunner()
+sts = SequentialCMIRunner()
 sts.load_inputs(
-    input_data_dir="data/input_files",
-    structure_path="data/Ni.cif",
-    output_result_dir="data/results",
+    input_data_dir="docs/examples/input_files",
+    structure_path="docs/examples/Ni.cif",
+    output_result_dir="docs/examples/results",
     filename_order_pattern=r"(\d+)K\.gr",
-    refine_variable_names=[
+    refinable_variable_names=[
         "a_1",
         "s0",
         "Uiso_0_1",
@@ -27,9 +27,9 @@ sts.load_inputs(
     dx=0.01,
     qmax=25,
     qmin=0.1,
-    # whether_plot_y=True,
-    # whether_plot_ycalc=True,
+    whether_plot_y=True,
+    whether_plot_ycalc=True,
     plot_variable_names=["a_1"],
     plot_result_entry_names=["residual"],
 )
-sts.start(mode="stream")
+sts.run(mode="stream")

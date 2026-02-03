@@ -14,7 +14,7 @@ from diffpy.srfit.fitbase import (
 from diffpy.srfit.pdf import PDFGenerator, PDFParser
 from diffpy.srfit.structure import constrainAsSpaceGroup
 from diffpy.structure.parsers import getParser
-from scipy.optimize import least_squares
+from scipy.optimize import minimize
 
 
 class PDFAdapter:
@@ -44,8 +44,8 @@ class PDFAdapter:
         Update parameter values from the provided dictionary.
     refine_variables(variable_names)
         Refine the parameters specified in the list and in that order.
-    get_parameter_names()
-        Get the names of all parameters in the recipe.
+    get_variable_names()
+        Get the names of all variables in the recipe.
     save_results(mode="str", filename=None)
         Save the fitting results.
     """
@@ -278,19 +278,18 @@ class PDFAdapter:
         """
         for vname in variable_names:
             self.recipe.free(vname)
-            least_squares(
-                self.recipe.residual,
+            minimize(
+                self.recipe.scalarResidual,
                 self.recipe.values,
-                x_scale="jac",
             )
 
-    def get_parameter_names(self) -> list[str]:
-        """Get the names of all parameters in the recipe.
+    def get_variable_names(self) -> list[str]:
+        """Get the names of all variables in the recipe.
 
         Returns
         -------
         list of str
-            A list of parameter names.
+            A list of variable names.
         """
         return list(self.recipe._parameters.keys())
 
