@@ -14,7 +14,7 @@ from diffpy.srfit.fitbase import (
 from diffpy.srfit.pdf import PDFGenerator, PDFParser
 from diffpy.srfit.structure import constrainAsSpaceGroup
 from diffpy.structure.parsers import getParser
-from scipy.optimize import minimize
+from scipy.optimize import least_squares
 
 
 class PDFAdapter:
@@ -277,10 +277,18 @@ class PDFAdapter:
             The names of the variables to refine.
         """
         for vname in variable_names:
+            if vname not in self.recipe._parameters:
+                raise ValueError(
+                    f"Variable {vname} not found in the recipe. "
+                    "Please choose from the existing variables: "
+                    f"{list(self.recipe._parameters.keys())}"
+                )
+        for vname in variable_names:
             self.recipe.free(vname)
-            minimize(
-                self.recipe.scalarResidual,
+            least_squares(
+                self.recipe.residual,
                 self.recipe.values,
+                x_scale="jac",
             )
 
     def get_variable_names(self) -> list[str]:

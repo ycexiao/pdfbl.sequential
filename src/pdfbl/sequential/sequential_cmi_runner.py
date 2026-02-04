@@ -3,6 +3,7 @@ import re
 import threading
 from pathlib import Path
 from queue import Queue
+from types import SimpleNamespace
 from typing import Literal
 
 from bg_mpl_stylesheets.styles import all_styles
@@ -24,6 +25,73 @@ class SequentialCMIRunner:
         self.adapter = PDFAdapter()
         self.data_for_plot = {}
 
+    def validate_inputs(self):
+        for path_name in [
+            "input_data_dir",
+            "output_result_dir",
+        ]:
+            if not Path(self.inputs[path_name]).exists():
+                raise FileNotFoundError(
+                    f"Path '{self.inputs[path_name]}' for "
+                    f"'{path_name}' does not exist. Please check the "
+                    "provided path."
+                )
+            if not Path(self.inputs[path_name]).is_dir():
+                raise NotADirectoryError(
+                    f"Path '{self.inputs[path_name]}' for "
+                    f"'{path_name}' is not a directory. Please check the "
+                    "provided path."
+                )
+        if not Path(self.inputs["structure_path"]).exists():
+            raise FileNotFoundError(
+                f"Structure file '{self.inputs['structure_path']}' does not "
+                "exist. Please check the provided path."
+            )
+        for tmp_file_path in Path(self.inputs["input_data_dir"]).glob("*"):
+            matches = re.findall(
+                self.inputs["filename_order_pattern"], tmp_file_path.name
+            )
+            if len(matches) == 0:
+                raise ValueError(
+                    f"Input file '{tmp_file_path}' does not match the "
+                    "filename order pattern. Please check the pattern "
+                    "or the input files."
+                )
+        tmp_adatper = PDFAdapter()
+        tmp_adatper.init_profile(str(tmp_file_path))
+        tmp_adatper.init_structures([self.inputs["structure_path"]])
+        tmp_adatper.init_contribution()
+        tmp_adatper.init_recipe()
+        allowed_variable_names = list(tmp_adatper.recipe._parameters.keys())
+        for var_name in self.inputs["refinable_variable_names"]:
+            if var_name not in allowed_variable_names:
+                raise ValueError(
+                    f"Refinable variable '{var_name}' not found in the "
+                    "recipe. Please choose from the existing variables: "
+                    f"{allowed_variable_names}"
+                )
+        for var_name in self.inputs.get("plot_variable_names", []):
+            if var_name not in allowed_variable_names:
+                raise ValueError(
+                    f"Variable '{var_name}' is not found in the recipe. "
+                    "Please choose from the existing variables: "
+                    f"{allowed_variable_names}"
+                )
+        allowed_result_entry_names = [
+            "residual",
+            "contributions",
+            "restraints",
+            "chi2",
+            "reduced_chi2",
+        ]
+        for entry_name in self.inputs.get("plot_result_entry_names", []):
+            if entry_name not in allowed_result_entry_names:
+                raise ValueError(
+                    f"Result entry '{entry_name}' is not a valid entry to "
+                    "plot. Please choose from the following entries: "
+                    f"{allowed_result_entry_names}"
+                )
+
     def load_inputs(
         self,
         input_data_dir,
@@ -41,6 +109,7 @@ class SequentialCMIRunner:
         dx=None,
         qmin=None,
         qmax=None,
+        show_plot=True,
     ):
         self.inputs = {
             "input_data_dir": input_data_dir,
@@ -57,47 +126,48 @@ class SequentialCMIRunner:
             "whether_plot_y": whether_plot_y,
             "whether_plot_ycalc": whether_plot_ycalc,
             "plot_variable_names": plot_variable_names or [],
+            "plot_result_entry_names": plot_result_entry_names or [],
         }
+        self.show_plot = show_plot
+        self.validate_inputs()
+        if self.show_plot:
+            self.init_plots()
+
+    def init_plots(self):
+        if not self.show_plot:
+            return
+        whether_plot_y = self.inputs["whether_plot_y"]
+        whether_plot_ycalc = self.inputs["whether_plot_ycalc"]
+        plot_variable_names = self.inputs["plot_variable_names"]
+        plot_result_entry_names = self.inputs["plot_result_entry_names"]
         if whether_plot_y and whether_plot_ycalc:
-            fig, axes = plt.subplots(2, 1)
-            (line,) = axes[0].plot(
-                [],
-                [],
-                label="ycalc",
-                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][0],
-            )
-            self.data_for_plot["ycalc"] = {
-                "line": line,
-                "xdata": Queue(),
-                "ydata": Queue(),
-            }
-            (line,) = axes[1].plot(
-                [],
-                [],
-                label="y",
-                color=plt.rcParams["axes.prop_cycle"].by_key()["color"][1],
-            )
-            self.data_for_plot["y"] = {
-                "line": line,
-                "xdata": Queue(),
-                "ydata": Queue(),
-            }
-        elif whether_plot_ycalc:
-            fig, ax = plt.subplots()
-            (line,) = ax.plot([], [], label="ycalc")
-            self.data_for_plot["ycalc"] = {
-                "line": line,
-                "xdata": Queue(),
-                "ydata": Queue(),
-            }
-        elif whether_plot_y:
-            fig, ax = plt.subplots()
-            (line,) = ax.plot([], [], label="y")
-            self.data_for_plot["y"] = {
-                "line": line,
-                "xdata": Queue(),
-                "ydata": Queue(),
-            }
+            fig, _ = plt.subplots(2, 1)
+            label = ["ycalc", "y"]
+        elif whether_plot_ycalc or whether_plot_y:
+            fig, _ = plt.subplots()
+            if whether_plot_ycalc:
+                label = ["ycalc"]
+            else:
+                label = ["y"]
+        else:
+            fig = None
+        if fig:
+            axes = fig.axes
+            lines = []
+            for i in range(len(axes)):
+                (line,) = axes[i].plot(
+                    [],
+                    [],
+                    label=label[i],
+                    color=plt.rcParams["axes.prop_cycle"].by_key()["color"][i],
+                )
+                lines.append(line)
+                self.data_for_plot[label[i]] = {
+                    "line": line,
+                    "xdata": Queue(),
+                    "ydata": Queue(),
+                }
+            fig.legend()
         if plot_variable_names:
             self.data_for_plot["variables"] = {}
             for var_name in plot_variable_names:
@@ -116,6 +186,46 @@ class SequentialCMIRunner:
                     entry_name: {"line": line, "buffer": [], "ydata": Queue()}
                 }
                 fig.suptitle(f"Result Entry: {entry_name}")
+
+    def update_plot(self):
+        if not self.show_plot:
+            return
+        for key, plot_pack in self.data_for_plot.items():
+            if key in ["ycalc", "y"]:
+                line = plot_pack["line"]
+                if not plot_pack["xdata"].empty():
+                    xdata = plot_pack["xdata"].get()
+                    ydata = plot_pack["ydata"].get()
+                    line.set_xdata(xdata)
+                    line.set_ydata(ydata)
+                    line.axes.relim()
+                    line.axes.autoscale_view()
+            elif key == "variables":
+                for var_name, var_pack in plot_pack.items():
+                    line = var_pack[var_name]["line"]
+                    buffer = var_pack[var_name]["buffer"]
+                    if not var_pack[var_name]["ydata"].empty():
+                        new_y = var_pack[var_name]["ydata"].get()
+                        buffer.append(new_y)
+                        xdata = list(range(1, len(buffer) + 1))
+                        ydata = buffer
+                        line.set_xdata(xdata)
+                        line.set_ydata(ydata)
+                        line.axes.relim()
+                        line.axes.autoscale_view()
+            elif key == "result_entries":
+                for entry_name, entry_pack in plot_pack.items():
+                    line = entry_pack[entry_name]["line"]
+                    buffer = entry_pack[entry_name]["buffer"]
+                    if not entry_pack[entry_name]["ydata"].empty():
+                        new_y = entry_pack[entry_name]["ydata"].get()
+                        buffer.append(new_y)
+                        xdata = list(range(1, len(buffer) + 1))
+                        ydata = buffer
+                        line.set_xdata(xdata)
+                        line.set_ydata(ydata)
+                        line.axes.relim()
+                        line.axes.autoscale_view()
 
     def check_for_new_data(self):
         input_data_dir = self.inputs["input_data_dir"]
@@ -149,7 +259,8 @@ class SequentialCMIRunner:
     def set_start_input_file(
         self, input_filename, input_filename_to_result_filename
     ):
-        input_file_path = Path(input_filename)
+        self.check_for_new_data()
+        input_file_path = Path(self.inputs["input_data_dir"]) / input_filename
         if input_file_path not in self.input_files_known:
             raise ValueError(
                 f"Input file {input_filename} not found in known input files."
@@ -158,8 +269,18 @@ class SequentialCMIRunner:
         self.input_files_completed = self.input_files_known[:start_index]
         self.input_files_running = self.input_files_known[start_index:]
         last_result_file = input_filename_to_result_filename(
-            self.input_files_completed[-1]
+            self.input_files_completed[-1].name
         )
+        last_result_file = (
+            Path(self.inputs["output_result_dir"]) / last_result_file
+        )
+        if not Path(last_result_file).exists():
+            raise FileNotFoundError(
+                f"Result file {last_result_file} not found. "
+                "Cannot load last result variable values. "
+                "Please check the provided function or use "
+                "an earlier input file."
+            )
         last_result_variables_values = json.load(open(last_result_file, "r"))[
             "variables"
         ]
@@ -168,8 +289,9 @@ class SequentialCMIRunner:
             for name, pack in last_result_variables_values.items()
         }
         self.last_result_variables_values = last_result_variables_values
+        print(f"Starting from input file: {self.input_files_running[0].name}")
 
-    def run_one_cycle(self):
+    def run_one_cycle(self, stop_event=SimpleNamespace(is_set=lambda: False)):
         self.check_for_new_data()
         xmin = self.inputs["xmin"]
         xmax = self.inputs["xmax"]
@@ -183,6 +305,9 @@ class SequentialCMIRunner:
         if not self.input_files_running:
             return None
         for input_file in self.input_files_running:
+            if stop_event.is_set():
+                break
+            print(f"Processing {input_file.name}...")
             self.adapter.init_profile(
                 str(input_file),
                 xmin=xmin,
@@ -234,10 +359,11 @@ class SequentialCMIRunner:
                 self.data_for_plot["result_entries"][entry_name][entry_name][
                     "ydata"
                 ].put(entry_value)
-            print(f"Completed processing {input_file.name}.")
+            print("Completed!")
         self.input_files_running = []
 
     def run(self, mode: Literal["batch", "stream"]):
+
         if mode == "batch":
             self.run_one_cycle()
         elif mode == "stream":
@@ -249,8 +375,8 @@ class SequentialCMIRunner:
 
             def stream_loop():
                 while not stop_event.is_set():
-                    self.run_one_cycle()
-                    stop_event.wait(1)  # Check for new data every 1 second
+                    self.run_one_cycle(stop_event)
+                    stop_event.wait(1)  # Check for new data every 1s
 
             def input_loop():
                 with patch_stdout():
@@ -275,42 +401,7 @@ class SequentialCMIRunner:
             fit_thread = threading.Thread(target=stream_loop)
             fit_thread.start()
             while not stop_event.is_set():
-                for key, plot_pack in self.data_for_plot.items():
-                    if key in ["ycalc", "y"]:
-                        line = plot_pack["line"]
-                        if not plot_pack["xdata"].empty():
-                            xdata = plot_pack["xdata"].get()
-                            ydata = plot_pack["ydata"].get()
-                            line.set_xdata(xdata)
-                            line.set_ydata(ydata)
-                            line.axes.relim()
-                            line.axes.autoscale_view()
-                    elif key == "variables":
-                        for var_name, var_pack in plot_pack.items():
-                            line = var_pack[var_name]["line"]
-                            buffer = var_pack[var_name]["buffer"]
-                            if not var_pack[var_name]["ydata"].empty():
-                                new_y = var_pack[var_name]["ydata"].get()
-                                buffer.append(new_y)
-                                xdata = list(range(1, len(buffer) + 1))
-                                ydata = buffer
-                                line.set_xdata(xdata)
-                                line.set_ydata(ydata)
-                                line.axes.relim()
-                                line.axes.autoscale_view()
-                    elif key == "result_entries":
-                        for entry_name, entry_pack in plot_pack.items():
-                            line = entry_pack[entry_name]["line"]
-                            buffer = entry_pack[entry_name]["buffer"]
-                            if not entry_pack[entry_name]["ydata"].empty():
-                                new_y = entry_pack[entry_name]["ydata"].get()
-                                buffer.append(new_y)
-                                xdata = list(range(1, len(buffer) + 1))
-                                ydata = buffer
-                                line.set_xdata(xdata)
-                                line.set_ydata(ydata)
-                                line.axes.relim()
-                                line.axes.autoscale_view()
+                self.update_plot()
                 plt.pause(1)  # Update plot every 1s
             fit_thread.join()
             input_thread.join()

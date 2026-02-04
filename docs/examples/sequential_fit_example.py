@@ -32,4 +32,10 @@ sts.load_inputs(
     plot_variable_names=["a_1"],
     plot_result_entry_names=["residual"],
 )
+sts.set_start_input_file(
+    "Ni_PDF_20250922-222655_ca8ae7_14K.gr",
+    input_filename_to_result_filename=lambda input_filename: input_filename.replace(  # noqa E501
+        ".gr", "_result.json"
+    ),
+)
 sts.run(mode="stream")
