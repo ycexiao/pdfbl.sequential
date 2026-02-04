@@ -73,15 +73,20 @@ class PDFAdapter:
         profile_path : str
             The path to the experimental PDF profile file.
         qmin : float
-            The minimum Q value for PDF calculation. Default is None.
+            The minimum Q value for PDF calculation. If None, use the value
+            parsed from the profile file.
         qmax : float
-            The maximum Q value for PDF calculation. Default is None.
+            The maximum Q value for PDF calculation. If None, use the value
+            parsed from the profile file.
         xmin : float
-            The minimum r value for PDF calculation. Default is None.
+            The minimum r value for PDF calculation. If None, use the value
+            parsed from the profile file.
         xmax : float
-            The maximum r value for PDF calculation. Default is None.
+            The maximum r value for PDF calculation. If None, use the value
+            parsed from the profile file.
         dx : float
-            The r step size for PDF calculation. Default is None.
+            The r step size for PDF calculation. If None, use the value
+            parsed from the profile file.
         """
         profile = Profile()
         parser = PDFParser()
@@ -173,6 +178,11 @@ class PDFAdapter:
         equation_string : str
             The equation string defining the contribution. If None, a default
             equation will be generated based on the number of phases.
+            e.g.
+            for one phase: "s0*G1",
+            for two phases: "s0*(s1*G1+(1-s1)*G2)",
+            for three phases: "s0*(s1*G1+s2*G2+(1-(s1+s2))*G3)",
+            ...
 
         Notes
         -----
@@ -308,13 +318,13 @@ class PDFAdapter:
 
         Parameters
         ----------
-        filename : str | None
-            The path to the output file. If None, results will not be saved to
-            a file. The default is None.
         mode : str
             The format to save the results. Options are:
                 "str" - Save results as a formatted text string.
                 "dict" - Save results as a JSON-compatible dictionary.
+        filename : str
+            The path to the output file. If None, results will not be saved to
+            a file. If None, do not create the result file.
         """
         fit_results = FitResults(self.recipe)
         if mode == "str":
