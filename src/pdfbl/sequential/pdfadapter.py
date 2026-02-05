@@ -2,6 +2,7 @@ import json
 import tempfile
 import warnings
 from pathlib import Path
+from queue import Queue
 from typing import Literal
 
 import numpy
@@ -50,7 +51,26 @@ class PDFAdapter:
     """  # noqa: E501
 
     def __init__(self):
-        pass
+        self.intermediate_results = {}
+        self.iter_count = 0
+
+    def moniter_intermediate_results(
+        self, key: str, step: int = 10, queue: Queue = None
+    ):
+        """Store an intermediate result during the fitting process.
+
+        Parameters
+        ----------
+        key : str
+            The key to identify the intermediate result.
+        step : int
+            The step interval to store the intermediate result.
+        queue : Queue
+            The queue to store the intermediate results.
+        """
+        if queue is None:
+            queue = Queue()
+        self.intermediate_results[(key, step)] = queue
 
     def init_profile(
         self,
@@ -276,6 +296,29 @@ class PDFAdapter:
         for vname, vvalue in variable_name_to_value.items():
             self.recipe._parameters[vname].setValue(vvalue)
 
+    def residual(self, p=[]):
+        """Wrapper for the recipe residual function to store
+        intermediate results if needed.
+
+        Parameters
+        ----------
+        p : list
+            List of parameter values.
+
+        Returns
+        -------
+        numpy.ndarray
+            The residual array.
+        """
+        residual = self.recipe.residual(p)
+        fitresults = FitResults(self.recipe)
+        for (key, step), values in self.intermediate_results.items():
+            if (self.iter_count % step) == 0:
+                value = getattr(fitresults, key)
+                values.put(value)
+        self.iter_count += 1
+        return residual
+
     def refine_variables(self, variable_names: list[str]):
         """Refine the parameters specified in the list and in that
         order. Must be called after init_recipe.
@@ -295,7 +338,7 @@ class PDFAdapter:
         for vname in variable_names:
             self.recipe.free(vname)
             least_squares(
-                self.recipe.residual,
+                self.residual,
                 self.recipe.values,
                 x_scale="jac",
             )

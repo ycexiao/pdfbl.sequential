@@ -1,6 +1,7 @@
 import json
 import re
 import threading
+import time
 import warnings
 from pathlib import Path
 from queue import Queue
@@ -24,7 +25,7 @@ class SequentialCMIRunner:
         self.input_files_completed = []
         self.input_files_running = []
         self.adapter = PDFAdapter()
-        self.data_for_plot = {}
+        self.visualization_data = {}
 
     def validate_inputs(self):
         for path_name in [
@@ -94,11 +95,21 @@ class SequentialCMIRunner:
             "chi2",
             "reduced_chi2",
         ]
-        for entry_name in self.inputs.get("plot_result_entry_names", []):
+        for entry_name in self.inputs.get("plot_result_names", []):
             if entry_name not in allowed_result_entry_names:
                 raise ValueError(
                     f"Result entry '{entry_name}' is not a valid entry to "
                     "plot. Please choose from the following entries: "
+                    f"{allowed_result_entry_names}"
+                )
+        for entry_name in self.inputs.get(
+            "plot_intermediate_result_names", []
+        ):
+            if entry_name not in allowed_result_entry_names:
+                raise ValueError(
+                    f"Intermediate result '{entry_name}' is not a valid "
+                    "entry to plot. Please choose from the following "
+                    "entries: "
                     f"{allowed_result_entry_names}"
                 )
 
@@ -111,7 +122,8 @@ class SequentialCMIRunner:
         whether_plot_y=False,
         whether_plot_ycalc=False,
         plot_variable_names=None,
-        plot_result_entry_names=None,
+        plot_result_names=None,
+        plot_intermediate_result_names=None,
         refinable_variable_names=None,
         initial_variable_values=None,
         xmin=None,
@@ -136,20 +148,22 @@ class SequentialCMIRunner:
             "whether_plot_y": whether_plot_y,
             "whether_plot_ycalc": whether_plot_ycalc,
             "plot_variable_names": plot_variable_names or [],
-            "plot_result_entry_names": plot_result_entry_names or [],
+            "plot_result_names": plot_result_names or [],
+            "plot_intermediate_result_names": plot_intermediate_result_names
+            or {},
         }
         self.show_plot = show_plot
         self.validate_inputs()
-        if self.show_plot:
-            self.init_plots()
+        self.init_plots()
 
     def init_plots(self):
-        if not self.show_plot:
-            return
         whether_plot_y = self.inputs["whether_plot_y"]
         whether_plot_ycalc = self.inputs["whether_plot_ycalc"]
         plot_variable_names = self.inputs["plot_variable_names"]
-        plot_result_entry_names = self.inputs["plot_result_entry_names"]
+        plot_result_names = self.inputs["plot_result_names"]
+        plot_intermediate_result_names = self.inputs[
+            "plot_intermediate_result_names"
+        ]
         if whether_plot_y and whether_plot_ycalc:
             fig, _ = plt.subplots(2, 1)
             label = ["ycalc", "y"]
@@ -172,63 +186,61 @@ class SequentialCMIRunner:
                     color=plt.rcParams["axes.prop_cycle"].by_key()["color"][i],
                 )
                 lines.append(line)
-                self.data_for_plot[label[i]] = {
+                self.visualization_data[label[i]] = {
                     "line": line,
                     "xdata": Queue(),
                     "ydata": Queue(),
                 }
             fig.legend()
-        if plot_variable_names:
-            self.data_for_plot["variables"] = {}
-            for var_name in plot_variable_names:
-                fig, ax = plt.subplots()
-                (line,) = ax.plot([], [], label=var_name, marker="o")
-                self.data_for_plot["variables"][var_name] = {
-                    var_name: {"line": line, "buffer": [], "ydata": Queue()}
-                }
-                fig.suptitle(f"Variable: {var_name}")
-        if plot_result_entry_names:
-            self.data_for_plot["result_entries"] = {}
-            for entry_name in plot_result_entry_names:
-                fig, ax = plt.subplots()
-                (line,) = ax.plot([], [], label=entry_name, marker="o")
-                self.data_for_plot["result_entries"][entry_name] = {
-                    entry_name: {"line": line, "buffer": [], "ydata": Queue()}
-                }
-                fig.suptitle(f"Result Entry: {entry_name}")
+        names = ["variables", "results", "intermediate_results"]
+        plot_tasks = [
+            plot_variable_names,
+            plot_result_names,
+            plot_intermediate_result_names,
+        ]
+        for i in range(len(plot_tasks)):
+            if plot_tasks[i] is not None:
+                self.visualization_data[names[i]] = {}
+                for var_name in plot_tasks[i]:
+                    fig, ax = plt.subplots()
+                    (line,) = ax.plot([], [], label=var_name, marker="o")
+                    self.visualization_data[names[i]][var_name] = {
+                        "line": line,
+                        "buffer": [],
+                        "ydata": Queue(),
+                    }
+                    fig.suptitle(f"{names[i].capitalize()}: {var_name}")
+        if plot_intermediate_result_names is not None:
+            for var_name in plot_intermediate_result_names:
+                self.adapter.moniter_intermediate_results(
+                    var_name,
+                    step=10,
+                    queue=self.visualization_data["intermediate_results"][
+                        var_name
+                    ]["ydata"],
+                )
 
     def update_plot(self):
-        if not self.show_plot:
-            return
-        for key, plot_pack in self.data_for_plot.items():
+        for key, plot_pack in self.visualization_data.items():
             if key in ["ycalc", "y"]:
-                line = plot_pack["line"]
                 if not plot_pack["xdata"].empty():
+                    line = plot_pack["line"]
                     xdata = plot_pack["xdata"].get()
                     ydata = plot_pack["ydata"].get()
                     line.set_xdata(xdata)
                     line.set_ydata(ydata)
                     line.axes.relim()
                     line.axes.autoscale_view()
-            elif key == "variables":
-                for var_name, var_pack in plot_pack.items():
-                    line = var_pack[var_name]["line"]
-                    buffer = var_pack[var_name]["buffer"]
-                    if not var_pack[var_name]["ydata"].empty():
-                        new_y = var_pack[var_name]["ydata"].get()
-                        buffer.append(new_y)
-                        xdata = list(range(1, len(buffer) + 1))
-                        ydata = buffer
-                        line.set_xdata(xdata)
-                        line.set_ydata(ydata)
-                        line.axes.relim()
-                        line.axes.autoscale_view()
-            elif key == "result_entries":
-                for entry_name, entry_pack in plot_pack.items():
-                    line = entry_pack[entry_name]["line"]
-                    buffer = entry_pack[entry_name]["buffer"]
-                    if not entry_pack[entry_name]["ydata"].empty():
-                        new_y = entry_pack[entry_name]["ydata"].get()
+            elif (
+                key == "variables"
+                or key == "results"
+                or key == "intermediate_results"
+            ):
+                for _, data_pack in plot_pack.items():
+                    if not data_pack["ydata"].empty():
+                        line = data_pack["line"]
+                        buffer = data_pack["buffer"]
+                        new_y = data_pack["ydata"].get()
                         buffer.append(new_y)
                         xdata = list(range(1, len(buffer) + 1))
                         ydata = buffer
@@ -348,39 +360,40 @@ class SequentialCMIRunner:
                 for name, pack in results["variables"].items()
             }
             self.input_files_completed.append(input_file)
-            if "ycalc" in self.data_for_plot:
+            if "ycalc" in self.visualization_data:
                 xdata = self.adapter.recipe.pdfcontribution.profile.x
                 ydata = self.adapter.recipe.pdfcontribution.profile.ycalc
-                self.data_for_plot["ycalc"]["xdata"].put(xdata)
-                self.data_for_plot["ycalc"]["ydata"].put(ydata)
-            if "y" in self.data_for_plot:
+                self.visualization_data["ycalc"]["xdata"].put(xdata)
+                self.visualization_data["ycalc"]["ydata"].put(ydata)
+            if "y" in self.visualization_data:
                 xdata = self.adapter.recipe.pdfcontribution.profile.x
                 ydata = self.adapter.recipe.pdfcontribution.profile.y
-                self.data_for_plot["y"]["xdata"].put(xdata)
-                self.data_for_plot["y"]["ydata"].put(ydata)
-            for var_name in self.data_for_plot.get("variables", {}):
+                self.visualization_data["y"]["xdata"].put(xdata)
+                self.visualization_data["y"]["ydata"].put(ydata)
+            for var_name in self.visualization_data.get("variables", {}):
                 new_value = self.adapter.recipe._parameters[var_name].value
-                self.data_for_plot["variables"][var_name][var_name][
-                    "ydata"
-                ].put(new_value)
-            for entry_name in self.data_for_plot.get("result_entries", {}):
+                self.visualization_data["variables"][var_name]["ydata"].put(
+                    new_value
+                )
+            for entry_name in self.visualization_data.get("results", {}):
                 fit_results = FitResults(self.adapter.recipe)
                 entry_value = getattr(fit_results, entry_name)
-                self.data_for_plot["result_entries"][entry_name][entry_name][
-                    "ydata"
-                ].put(entry_value)
+                self.visualization_data["results"][entry_name]["ydata"].put(
+                    entry_value
+                )
             print("Completed!")
         self.input_files_running = []
 
     def run(self, mode: Literal["batch", "stream"]):
         if mode == "batch":
             self.run_one_cycle()
+            self.update_plot()
         elif mode == "stream":
             stop_event = threading.Event()
             session = PromptSession()
-            if self.data_for_plot is not None:
+            if (self.visualization_data is not None) and self.show_plot:
                 plt.ion()
-                plt.pause(1)  # Update plot every 1s
+                plt.pause(0.01)
 
             def stream_loop():
                 while not stop_event.is_set():
@@ -404,6 +417,18 @@ class SequentialCMIRunner:
                                 "Unrecognized input. "
                                 "Please type 'STOP' to end."
                             )
+                    visualization_data = {}
+                    for (
+                        category_name,
+                        data_pack,
+                    ) in self.visualization_data.items():
+                        for var_name, var_pack in data_pack.items():
+                            if "buffer" in var_pack:
+                                visualization_data[category_name] = {
+                                    var_name: var_pack["buffer"]
+                                }
+                    with open("visualization_data.json", "w") as f:
+                        json.dump(visualization_data, f, indent=2)
 
             input_thread = threading.Thread(target=input_loop)
             input_thread.start()
@@ -411,7 +436,8 @@ class SequentialCMIRunner:
             fit_thread.start()
             while not stop_event.is_set():
                 self.update_plot()
-                plt.pause(1)  # Update plot every 1s
+                plt.pause(0.01)
+                time.sleep(1)
             fit_thread.join()
             input_thread.join()
         else:

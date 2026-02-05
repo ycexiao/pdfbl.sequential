@@ -96,3 +96,60 @@ def test_run_sequential_cmi_runner(user_filesystem):
     )
     print(list(result_folder.iterdir()))
     assert result_file_path.exists()
+
+
+def test_data_for_plot(user_filesystem):
+    # C1: plot_variable_names, plot_result_entry_names,
+    #   plot_intermediate_results are provided.
+    #   Expect results are stored in data_for_plot after running.
+    result_folder = user_filesystem / "empty_folder"
+    input_data_folder = Path(__file__).parent / "data" / "input_data_dir"
+    structure_path = Path(__file__).parent / "data" / "Ni.cif"
+    refinable_variable_names = [
+        "a_1",
+        "s0",
+        "Uiso_0_1",
+        "delta2_1",
+        "qdamp",
+        "qbroad",
+    ]
+    initial_variable_values = {
+        "s0": 0.4,
+        "qdamp": 0.04,
+        "qbroad": 0.02,
+        "a_1": 3.52,
+        "Uiso_0_1": 0.005,
+        "delta2_1": 2,
+    }
+    runner = SequentialCMIRunner()
+    runner.load_inputs(
+        input_data_dir=str(input_data_folder),
+        structure_path=str(structure_path),
+        output_result_dir=str(result_folder),
+        filename_order_pattern=r"(\d+)K\.gr",
+        refinable_variable_names=refinable_variable_names,
+        initial_variable_values=initial_variable_values,
+        xmin=1.5,
+        xmax=25.0,
+        dx=0.01,
+        qmax=25,
+        qmin=0.1,
+        plot_variable_names=["a_1"],
+        plot_result_names=["residual"],
+        plot_intermediate_result_names=["residual"],
+        show_plot=False,
+    )
+    # Expect corresponding key are created in data_for_plot after running.
+    assert "variables" in runner.visualization_data
+    assert "results" in runner.visualization_data
+    assert "intermediate_results" in runner.visualization_data
+    assert "a_1" in runner.visualization_data["variables"]
+    assert "residual" in runner.visualization_data["results"]
+    assert "residual" in runner.visualization_data["intermediate_results"]
+    runner.run(mode="batch")
+    # Expect 'buffer' in each plot data are populated after running.
+    names = ["variables", "results", "intermediate_results"]
+    for name in names:
+        for _, plot_pack in runner.visualization_data[name].items():
+            buffer = plot_pack["buffer"]
+            assert len(buffer) > 0

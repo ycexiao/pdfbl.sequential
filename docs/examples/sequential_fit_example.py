@@ -27,10 +27,11 @@ sts.load_inputs(
     dx=0.01,
     qmax=25,
     qmin=0.1,
-    whether_plot_y=True,
-    whether_plot_ycalc=True,
-    plot_variable_names=["a_1"],
-    plot_result_entry_names=["residual"],
+    # whether_plot_y=True,
+    # whether_plot_ycalc=True,
+    # plot_variable_names=["a_1"],
+    # plot_result_names=["residual"],
+    plot_intermediate_result_names=["residual"],
 )
 # Uncomment when "Ni_PDF_20250922-222655_ca8ae7_14K_result.json" is available
 # sts.set_start_input_file(
