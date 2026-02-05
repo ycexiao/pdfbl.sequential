@@ -28,11 +28,10 @@ class PDFAdapter:
 
     Methods
     -------
-    init_profile(profile_path, qmin=None, qmax=None, xmin=None, xmax=None,
-            dx=None)
+    init_profile(profile_path, qmin=None, qmax=None, xmin=None, xmax=None, dx=None)
         Load and initialize the PDF profile from the given file path with
         some optional parameters.
-    init_structures(structure_paths, run_parallel=True)
+    init_structures(structure_paths : list[str], run_parallel=True)
         Load and initialize the structures from the given file paths, and
         generate corresponding PDFGenerator objects.
     init_contribution(equation_string=None)
@@ -40,15 +39,15 @@ class PDFAdapter:
         the profile.
     init_recipe()
         Initialize the FitRecipe object for the fitting process.
-    set_initial_variable_values(variable_name_to_value)
+    set_initial_variable_values(variable_name_to_value : dict)
         Update parameter values from the provided dictionary.
-    refine_variables(variable_names)
+    refine_variables(variable_names: list[str])
         Refine the parameters specified in the list and in that order.
     get_variable_names()
         Get the names of all variables in the recipe.
-    save_results(mode="str", filename=None)
+    save_results(mode: str, filename: str=None)
         Save the fitting results.
-    """
+    """  # noqa: E501
 
     def __init__(self):
         pass
@@ -73,16 +72,21 @@ class PDFAdapter:
         ----------
         profile_path : str
             The path to the experimental PDF profile file.
-        qmin : float, optional
-            The minimum Q value for PDF calculation. Default is None.
-        qmax : float, optional
-            The maximum Q value for PDF calculation. Default is None.
-        xmin : float, optional
-            The minimum r value for PDF calculation. Default is None.
-        xmax : float, optional
-            The maximum r value for PDF calculation. Default is None.
-        dx : float, optional
-            The r step size for PDF calculation. Default is None.
+        qmin : float
+            The minimum Q value for PDF calculation. The default value is
+            the one parsed from the profile file.
+        qmax : float
+            The maximum Q value for PDF calculation. The default value is the
+            one parsed from the profile file.
+        xmin : float
+            The minimum r value for PDF calculation. The default value is the
+            one parsed from the profile file.
+        xmax : float
+            The maximum r value for PDF calculation. The default value is the
+            one parsed from the profile file.
+        dx : float
+            The r step size for PDF calculation. The default value is the
+            one parsed from the profile file.
         """
         profile = Profile()
         parser = PDFParser()
@@ -113,9 +117,9 @@ class PDFAdapter:
         Notes
         -----
         Planned features:
-        - Support cif file manipulation.
-            - Add/Remove atoms.
-            - symmetry operations?
+            - Support cif file manipulation.
+                - Add/Remove atoms.
+                - symmetry operations?
         """
         if isinstance(structure_paths, str):
             structure_paths = [structure_paths]
@@ -171,14 +175,19 @@ class PDFAdapter:
 
         Parameters
         ----------
-        equation_string : str, optional
-            The equation string defining the contribution. If None, a default
+        equation_string : str
+            The equation string defining the contribution. The default
             equation will be generated based on the number of phases.
+            e.g.
+            for one phase: "s0*G1",
+            for two phases: "s0*(s1*G1+(1-s1)*G2)",
+            for three phases: "s0*(s1*G1+s2*G2+(1-(s1+s2))*G3)",
+            ...
 
         Notes
         -----
         Planned features:
-        - Support registerFunction for custom equations.
+            - Support registerFunction for custom equations.
         """
         contribution = FitContribution("pdfcontribution")
         contribution.setProfile(self.profile)
@@ -216,10 +225,10 @@ class PDFAdapter:
         Notes
         -----
         Planned features:
-        - support instructions to
-            - add variables
-            - constrain variables of the scatters
-            - change symmetry constraints
+            - support instructions to
+                - add variables
+                - constrain variables of the scatters
+                - change symmetry constraints
         """
         recipe = FitRecipe()
         recipe.addContribution(self.contribution)
@@ -302,20 +311,25 @@ class PDFAdapter:
         return list(self.recipe._parameters.keys())
 
     def save_results(
-        self, mode: Literal["dict", "str"] = "str", filename=None
+        self, mode: Literal["str", "dict"] = "str", filename=None
     ):
         """Save the fitting results. Must be called after
         refine_parameters.
 
         Parameters
         ----------
-        filename : str | None
+        mode : str
+            The format to save the results. Options are:
+                "str" - Save results as a formatted text string.
+                "dict" - Save results as a JSON-compatible dictionary.
+        filename : str
             The path to the output file. If None, results will not be saved to
-            a file. The default is None.
-        mode : {"dict", "str"}
-            The format to save the results.
-            "str" - Save results as a formatted text string.
-            "dict" - Save results as a JSON-compatible dictionary.
+            a file.
+
+        Returns
+        -------
+        str or dict
+            The fitting results in the specified format.
         """
         fit_results = FitResults(self.recipe)
         if mode == "str":

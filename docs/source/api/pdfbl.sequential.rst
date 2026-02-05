@@ -10,21 +10,25 @@
     :undoc-members:
     :show-inheritance:
 
-Subpackages
------------
-
-.. toctree::
-   pdfbl.sequential.example_package
 
 Submodules
 ----------
 
-|module|
---------
+pdfbl.sequential.pdfadapter module
+----------------------------------
 
-.. |module| replace:: pdfbl.sequential.example_submodule module
-
-.. automodule:: pdfbl.sequential.example_submodule
+.. automodule:: pdfbl.sequential.pdfadapter
     :members:
     :undoc-members:
     :show-inheritance:
+    :no-index:
+
+
+pdfbl.sequential.sequential_cmi_runner module
+---------------------------------------------
+
+.. automodule:: pdfbl.sequential.sequential_cmi_runner
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :no-index:
