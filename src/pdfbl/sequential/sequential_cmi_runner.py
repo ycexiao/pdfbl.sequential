@@ -1,6 +1,7 @@
 import json
 import re
 import threading
+import warnings
 from pathlib import Path
 from queue import Queue
 from types import SimpleNamespace
@@ -47,36 +48,45 @@ class SequentialCMIRunner:
                 f"Structure file '{self.inputs['structure_path']}' does not "
                 "exist. Please check the provided path."
             )
-        for tmp_file_path in Path(self.inputs["input_data_dir"]).glob("*"):
-            matches = re.findall(
-                self.inputs["filename_order_pattern"], tmp_file_path.name
+        profile_files = list(Path(self.inputs["input_data_dir"]).glob("*"))
+        if len(profile_files) > 0:  # skip variable checking if no input files
+            for tmp_file_path in profile_files:
+                matches = re.findall(
+                    self.inputs["filename_order_pattern"], tmp_file_path.name
+                )
+                if len(matches) == 0:
+                    raise ValueError(
+                        f"Input file '{tmp_file_path}' does not match the "
+                        "filename order pattern. Please check the pattern "
+                        "or the input files."
+                    )
+            tmp_adatper = PDFAdapter()
+            tmp_adatper.init_profile(str(tmp_file_path))
+            tmp_adatper.init_structures([self.inputs["structure_path"]])
+            tmp_adatper.init_contribution()
+            tmp_adatper.init_recipe()
+            allowed_variable_names = list(
+                tmp_adatper.recipe._parameters.keys()
             )
-            if len(matches) == 0:
-                raise ValueError(
-                    f"Input file '{tmp_file_path}' does not match the "
-                    "filename order pattern. Please check the pattern "
-                    "or the input files."
-                )
-        tmp_adatper = PDFAdapter()
-        tmp_adatper.init_profile(str(tmp_file_path))
-        tmp_adatper.init_structures([self.inputs["structure_path"]])
-        tmp_adatper.init_contribution()
-        tmp_adatper.init_recipe()
-        allowed_variable_names = list(tmp_adatper.recipe._parameters.keys())
-        for var_name in self.inputs["refinable_variable_names"]:
-            if var_name not in allowed_variable_names:
-                raise ValueError(
-                    f"Refinable variable '{var_name}' not found in the "
-                    "recipe. Please choose from the existing variables: "
-                    f"{allowed_variable_names}"
-                )
-        for var_name in self.inputs.get("plot_variable_names", []):
-            if var_name not in allowed_variable_names:
-                raise ValueError(
-                    f"Variable '{var_name}' is not found in the recipe. "
-                    "Please choose from the existing variables: "
-                    f"{allowed_variable_names}"
-                )
+            for var_name in self.inputs["refinable_variable_names"]:
+                if var_name not in allowed_variable_names:
+                    raise ValueError(
+                        f"Refinable variable '{var_name}' not found in the "
+                        "recipe. Please choose from the existing variables: "
+                        f"{allowed_variable_names}"
+                    )
+            for var_name in self.inputs.get("plot_variable_names", []):
+                if var_name not in allowed_variable_names:
+                    raise ValueError(
+                        f"Variable '{var_name}' is not found in the recipe. "
+                        "Please choose from the existing variables: "
+                        f"{allowed_variable_names}"
+                    )
+        else:
+            warnings.warn(
+                "No input profile files found in the input data directory. "
+                "Skipping variable name validation."
+            )
         allowed_result_entry_names = [
             "residual",
             "contributions",
