@@ -27,7 +27,7 @@ class SequentialCMIRunner:
         self.adapter = PDFAdapter()
         self.visualization_data = {}
 
-    def validate_inputs(self):
+    def _validate_inputs(self):
         for path_name in [
             "input_data_dir",
             "output_result_dir",
@@ -133,6 +133,90 @@ class SequentialCMIRunner:
         qmax=None,
         show_plot=True,
     ):
+        """Load and validate input configuration for sequential PDF
+        refinement.
+
+        This method initializes the sequential CMI runner with input data,
+        structure information, and refinement parameters, and the plotting
+        configuration.
+
+        Parameters
+        ----------
+        input_data_dir : str
+            Path to the directory containing input PDF profile files.
+        structure_path : str
+            Path to the structure file (e.g., CIF format) used for refinement.
+        output_result_dir : str
+            Path to the directory for storing refinement results.
+            Default is "results".
+        filename_order_pattern : str
+            Regular expression pattern to extract ordering information from
+            filenames.
+            Default is r"(\d+)K\.gr" to extract temperature values from
+            filenames.
+        refinable_variable_names : list of str
+            Names of variables to refine.
+            Must exist in the recipe. Default is None.
+        initial_variable_values : dict
+            Dictionary mapping variable names to their initial values.
+            Default is None.
+        xmin : float
+            Minimum x-value for the PDF profile.
+            Default is the value prased from the input file.
+        xmax : float
+            Maximum x-value for the PDF profile.
+            Default is the value prased from the input file.
+        dx : float
+            Step size for the PDF profile.
+            Default is the value prased from the input file.
+        qmin : float
+            Minimum q-value for the PDF profile.
+            Default is the value prased from the input file.
+        qmax : float
+            Maximum q-value for the PDF profile.
+            Default is the value prased from the input file.
+        show_plot : bool
+            Whether to display plots during refinement. Default is True.
+        whether_plot_y : bool
+            Whether to plot the experimental PDF data (y). Default is False.
+        whether_plot_ycalc : bool
+            Whether to plot the calculated PDF data (ycalc). Default is False.
+        plot_variable_names : list of str
+            Names of refinable variables to plot during refinement.
+            Default is None.
+        plot_result_names : list of str
+            Names of fit result entries to plot.
+            Allowed values: "residual", "contributions", "restraints", "chi2",
+            "reduced_chi2". Default is None.
+        plot_intermediate_result_names : list of str
+            Names of intermediate result entries to plot during refinement.
+            Allowed values: "residual", "contributions", "restraints", "chi2",
+            "reduced_chi2". Default is None.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the input data directory, output result directory, or structure
+            file does not exist.
+        NotADirectoryError
+            If input_data_dir or output_result_dir is not a directory.
+        ValueError
+            If a refinable variable name is not found in the recipe, or if a
+            plot result name is not valid.
+
+        Examples
+        --------
+        >>> runner = SequentialCMIRunner()
+        >>> runner.load_inputs(
+        ...     input_data_dir="./data",
+        ...     structure_path="./structure.cif",
+        ...     output_result_dir="./results",
+        ...     refinable_variable_names=["a", "all"],
+        ...     plot_variable_names=["a"],
+        ...     plot_result_names=["chi2"],
+        ...     plot_intermediate_result_names=["residual"],
+        ... )
+        """  # noqa: W605
         self.inputs = {
             "input_data_dir": input_data_dir,
             "structure_path": structure_path,
@@ -153,10 +237,10 @@ class SequentialCMIRunner:
             or {},
         }
         self.show_plot = show_plot
-        self.validate_inputs()
-        self.init_plots()
+        self._validate_inputs()
+        self._init_plots()
 
-    def init_plots(self):
+    def _init_plots(self):
         whether_plot_y = self.inputs["whether_plot_y"]
         whether_plot_ycalc = self.inputs["whether_plot_ycalc"]
         plot_variable_names = self.inputs["plot_variable_names"]
@@ -220,7 +304,7 @@ class SequentialCMIRunner:
                     ]["ydata"],
                 )
 
-    def update_plot(self):
+    def _update_plot(self):
         for key, plot_pack in self.visualization_data.items():
             if key in ["ycalc", "y"]:
                 if not plot_pack["xdata"].empty():
@@ -249,7 +333,7 @@ class SequentialCMIRunner:
                         line.axes.relim()
                         line.axes.autoscale_view()
 
-    def check_for_new_data(self):
+    def _check_for_new_data(self):
         input_data_dir = self.inputs["input_data_dir"]
         filename_order_pattern = self.inputs["filename_order_pattern"]
         files = [file for file in Path(input_data_dir).glob("*")]
@@ -281,7 +365,20 @@ class SequentialCMIRunner:
     def set_start_input_file(
         self, input_filename, input_filename_to_result_filename
     ):
-        self.check_for_new_data()
+        """Set the starting input file for sequential refinement and
+        continue the interrupted sequential refinement from that point.
+
+        Parameters
+        ----------
+        input_filename : str
+            The name of the input file to start from. This file must be in the
+            input data directory.
+        input_filename_to_result_filename : function
+            A function that takes an input filename and returns the
+            corresponding result filename. This is used to locate the last
+            result file for loading variable values.
+        """
+        self._check_for_new_data()
         input_file_path = Path(self.inputs["input_data_dir"]) / input_filename
         if input_file_path not in self.input_files_known:
             raise ValueError(
@@ -313,8 +410,8 @@ class SequentialCMIRunner:
         self.last_result_variables_values = last_result_variables_values
         print(f"Starting from input file: {self.input_files_running[0].name}")
 
-    def run_one_cycle(self, stop_event=SimpleNamespace(is_set=lambda: False)):
-        self.check_for_new_data()
+    def _run_one_cycle(self, stop_event=SimpleNamespace(is_set=lambda: False)):
+        self._check_for_new_data()
         xmin = self.inputs["xmin"]
         xmax = self.inputs["xmax"]
         dx = self.inputs["dx"]
@@ -385,9 +482,22 @@ class SequentialCMIRunner:
         self.input_files_running = []
 
     def run(self, mode: Literal["batch", "stream"]):
+        """Run the sequential refinement process in either batch or
+        streaming mode.
+
+        Parameters
+        ----------
+        mode : str
+            The mode to run the sequential refinement. Must be either "batch"
+            or "stream". In "batch" mode, the toolset will run through all
+            available input files once and then stop. In "stream" mode, the
+            runner will continuously monitor the input data directory for new
+            files and process them as they appear, until the user decides
+            to stop the process.
+        """
         if mode == "batch":
-            self.run_one_cycle()
-            self.update_plot()
+            self._run_one_cycle()
+            self._update_plot()
         elif mode == "stream":
             stop_event = threading.Event()
             session = PromptSession()
@@ -397,7 +507,7 @@ class SequentialCMIRunner:
 
             def stream_loop():
                 while not stop_event.is_set():
-                    self.run_one_cycle(stop_event)
+                    self._run_one_cycle(stop_event)
                     stop_event.wait(1)  # Check for new data every 1s
 
             def input_loop():
@@ -435,7 +545,7 @@ class SequentialCMIRunner:
             fit_thread = threading.Thread(target=stream_loop)
             fit_thread.start()
             while not stop_event.is_set():
-                self.update_plot()
+                self._update_plot()
                 plt.pause(0.01)
                 time.sleep(1)
             fit_thread.join()

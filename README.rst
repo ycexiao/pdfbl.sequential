@@ -93,6 +93,21 @@ To view the basic usage and available commands, type ::
 
         pdfbl.sequential -h
 
+Examples
+--------
+
+To run a temperature sequential refinement, ::
+
+        from pdfbl.sequential.sequential_cmi_runner import SequentialCMIRunner
+        runner = SequentialCMIRunner()
+        runner.load_inputs(
+                input_data_dir="path/to/inputs",
+                output_result_dir="path/to/outputs",
+                structure_path="path/to/structure.cif",
+                filename_order_pattern=r"(\d+)K\.gr",  # regex pattern to extract the temperature from the filename
+        )
+        runner.run(mode="batch")  # or mode="stream" for running sequentially as data becomes available
+
 Getting Started
 ---------------
 

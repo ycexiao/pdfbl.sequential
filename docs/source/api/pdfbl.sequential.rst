@@ -11,9 +11,6 @@
     :show-inheritance:
 
 
-Submodules
-----------
-
 pdfbl.sequential.pdfadapter module
 ----------------------------------
 
