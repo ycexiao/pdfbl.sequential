@@ -32,12 +32,12 @@ def test_pdfadapter():
         diffpy_pv_dict[pname] = parameter.value
     # pdfadapter fitting
     adapter = PDFAdapter()
-    adapter.init_profile(
+    adapter.initialize_profile(
         str(profile_path), xmin=1.5, xmax=50, dx=0.01, qmax=25, qmin=0.1
     )
-    adapter.init_structures([str(structure_path)])
-    adapter.init_contribution()
-    adapter.init_recipe()
+    adapter.initialize_structures([str(structure_path)])
+    adapter.initialize_contribution()
+    adapter.initialize_recipe()
     initial_pdfadapter_pv_dict = {
         "s0": 0.4,
         "qdamp": 0.04,

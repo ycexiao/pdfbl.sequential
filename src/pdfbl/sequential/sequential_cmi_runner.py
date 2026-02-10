@@ -62,10 +62,10 @@ class SequentialCMIRunner:
                         "or the input files."
                     )
             tmp_adatper = PDFAdapter()
-            tmp_adatper.init_profile(str(tmp_file_path))
-            tmp_adatper.init_structures([self.inputs["structure_path"]])
-            tmp_adatper.init_contribution()
-            tmp_adatper.init_recipe()
+            tmp_adatper.initialize_profile(str(tmp_file_path))
+            tmp_adatper.initialize_structures([self.inputs["structure_path"]])
+            tmp_adatper.initialize_contribution()
+            tmp_adatper.initialize_recipe()
             allowed_variable_names = list(
                 tmp_adatper.recipe._parameters.keys()
             )
@@ -299,7 +299,7 @@ class SequentialCMIRunner:
                     fig.suptitle(f"{names[i].capitalize()}: {var_name}")
         if plot_intermediate_result_names is not None:
             for var_name in plot_intermediate_result_names:
-                self.adapter.moniter_intermediate_results(
+                self.adapter.monitor_intermediate_results(
                     var_name,
                     step=10,
                     queue=self.visualization_data["intermediate_results"][
@@ -377,7 +377,7 @@ class SequentialCMIRunner:
             The name of the input file to start from. This file must be in the
             input data directory.
         input_filename_to_result_filename : function
-            A function that takes an input filename and returns the
+            The function that takes an input filename and returns the
             corresponding result filename. This is used to locate the last
             result file for loading variable values.
         """
@@ -430,7 +430,7 @@ class SequentialCMIRunner:
             if stop_event.is_set():
                 break
             print(f"Processing {input_file.name}...")
-            self.adapter.init_profile(
+            self.adapter.initialize_profile(
                 str(input_file),
                 xmin=xmin,
                 xmax=xmax,
@@ -438,9 +438,9 @@ class SequentialCMIRunner:
                 qmin=qmin,
                 qmax=qmax,
             )
-            self.adapter.init_structures([structure_path])
-            self.adapter.init_contribution()
-            self.adapter.init_recipe()
+            self.adapter.initialize_structures([structure_path])
+            self.adapter.initialize_contribution()
+            self.adapter.initialize_recipe()
             if not hasattr(self, "last_result_variables_values"):
                 self.last_result_variables_values = initial_variable_values
             self.adapter.set_initial_variable_values(

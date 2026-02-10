@@ -29,16 +29,16 @@ class PDFAdapter:
 
     Methods
     -------
-    init_profile(profile_path, qmin=None, qmax=None, xmin=None, xmax=None, dx=None)
+    initialize_profile(profile_path, qmin=None, qmax=None, xmin=None, xmax=None, dx=None)
         Load and initialize the PDF profile from the given file path with
         some optional parameters.
-    init_structures(structure_paths : list[str], run_parallel=True)
+    initialize_structures(structure_paths : list[str], run_parallel=True)
         Load and initialize the structures from the given file paths, and
         generate corresponding PDFGenerator objects.
-    init_contribution(equation_string=None)
+    initialize_contribution(equation_string=None)
         Initialize the FitContribution object combining the PDF generators and
         the profile.
-    init_recipe()
+    initialize_recipe()
         Initialize the FitRecipe object for the fitting process.
     set_initial_variable_values(variable_name_to_value : dict)
         Update parameter values from the provided dictionary.
@@ -54,7 +54,7 @@ class PDFAdapter:
         self.intermediate_results = {}
         self.iter_count = 0
 
-    def moniter_intermediate_results(
+    def monitor_intermediate_results(
         self, key: str, step: int = 10, queue: Queue = None
     ):
         """Store an intermediate result during the fitting process.
@@ -72,7 +72,7 @@ class PDFAdapter:
             queue = Queue()
         self.intermediate_results[(key, step)] = queue
 
-    def init_profile(
+    def initialize_profile(
         self,
         profile_path: str,
         qmin=None,
@@ -119,7 +119,9 @@ class PDFAdapter:
         profile.setCalculationRange(xmin=xmin, xmax=xmax, dx=dx)
         self.profile = profile
 
-    def init_structures(self, structure_paths: list[str], run_parallel=True):
+    def initialize_structures(
+        self, structure_paths: list[str], run_parallel=True
+    ):
         """Load and initialize the structures from the given file paths,
         and generate corresponding PDFGenerator objects.
 
@@ -127,7 +129,7 @@ class PDFAdapter:
         PDFGenerator objects, and a FitContribution object combining them. This
         method creates the PDFGenerator objects from the structure files.
 
-        Must be called after init_profile.
+        Must be called after initialize_profile.
 
         Parameters
         ----------
@@ -182,7 +184,7 @@ class PDFAdapter:
         self.spacegroups = spacegroups
         self.pdfgenerators = pdfgenerators
 
-    def init_contribution(self, equation_string=None):
+    def initialize_contribution(self, equation_string=None):
         """Initialize the FitContribution object combining the PDF
         generators and the profile.
 
@@ -191,7 +193,7 @@ class PDFAdapter:
         method creates the FitContribution object combining the profile and PDF
         generators.
 
-        Must be called after init_profile and init_structures.
+        Must be called after initialize_profile and initialize_structures.
 
         Parameters
         ----------
@@ -230,7 +232,7 @@ class PDFAdapter:
         self.contribution = contribution
         return self.contribution
 
-    def init_recipe(
+    def initialize_recipe(
         self,
     ):
         """Initialize the FitRecipe object for the fitting process.
@@ -240,7 +242,7 @@ class PDFAdapter:
         method creates the FitRecipe object combining the profile, PDF
         generators, and contribution.
 
-        Must be called after init_contribution.
+        Must be called after initialize_contribution.
 
         Notes
         -----
@@ -311,17 +313,18 @@ class PDFAdapter:
             The residual array.
         """
         residual = self.recipe.residual(p)
-        fitresults = FitResults(self.recipe)
-        for (key, step), values in self.intermediate_results.items():
-            if (self.iter_count % step) == 0:
-                value = getattr(fitresults, key)
-                values.put(value)
+        if self.intermediate_results is not None:
+            fitresults = FitResults(self.recipe)
+            for (key, step), values in self.intermediate_results.items():
+                if (self.iter_count % step) == 0:
+                    value = getattr(fitresults, key)
+                    values.put(value)
         self.iter_count += 1
         return residual
 
     def refine_variables(self, variable_names: list[str]):
         """Refine the parameters specified in the list and in that
-        order. Must be called after init_recipe.
+        order. Must be called after initialize_recipe.
 
         Parameters
         ----------
@@ -357,7 +360,7 @@ class PDFAdapter:
         self, mode: Literal["str", "dict"] = "str", filename=None
     ):
         """Save the fitting results. Must be called after
-        refine_parameters.
+        refine_variables.
 
         Parameters
         ----------
