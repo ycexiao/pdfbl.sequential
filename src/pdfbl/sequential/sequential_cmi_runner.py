@@ -143,38 +143,41 @@ class SequentialCMIRunner:
         Parameters
         ----------
         input_data_dir : str
-            Path to the directory containing input PDF profile files.
+            The path to the directory containing input PDF profile files.
         structure_path : str
-            Path to the structure file (e.g., CIF format) used for refinement.
+            The path to the structure file (e.g., CIF format) used for
+            refinement.
         output_result_dir : str
-            Path to the directory for storing refinement results.
+            The path to the directory for storing refinement results.
             Default is "results".
         filename_order_pattern : str
-            Regular expression pattern to extract ordering information from
-            filenames.
+            The regular expression pattern to extract ordering information
+            from filenames.
             Default is r"(\d+)K\.gr" to extract temperature values from
             filenames.
         refinable_variable_names : list of str
-            Names of variables to refine.
-            Must exist in the recipe. Default is None.
+            The list of variable names to refine.
+            Must exist in the recipe.
+            Default variable names are all possible variables that can
+            be created from the input structure and profile.
         initial_variable_values : dict
-            Dictionary mapping variable names to their initial values.
+            The dictionary mapping variable names to their initial values.
             Default is None.
         xmin : float
-            Minimum x-value for the PDF profile.
-            Default is the value prased from the input file.
+            The minimum x-value for the PDF profile.
+            Default is the value parsed from the input file.
         xmax : float
-            Maximum x-value for the PDF profile.
-            Default is the value prased from the input file.
+            The maximum x-value for the PDF profile.
+            Default is the value parsed from the input file.
         dx : float
-            Step size for the PDF profile.
-            Default is the value prased from the input file.
+            The step size for the PDF profile.
+            Default is the value parsed from the input file.
         qmin : float
-            Minimum q-value for the PDF profile.
-            Default is the value prased from the input file.
+            The minimum q-value for the PDF profile.
+            Default is the value parsed from the input file.
         qmax : float
-            Maximum q-value for the PDF profile.
-            Default is the value prased from the input file.
+            The maximum q-value for the PDF profile.
+            Default is the value parsed from the input file.
         show_plot : bool
             Whether to display plots during refinement. Default is True.
         whether_plot_y : bool
@@ -182,14 +185,14 @@ class SequentialCMIRunner:
         whether_plot_ycalc : bool
             Whether to plot the calculated PDF data (ycalc). Default is False.
         plot_variable_names : list of str
-            Names of refinable variables to plot during refinement.
+            The list of variable names to plot during refinement.
             Default is None.
         plot_result_names : list of str
-            Names of fit result entries to plot.
+            The list of fit result entries to plot.
             Allowed values: "residual", "contributions", "restraints", "chi2",
             "reduced_chi2". Default is None.
         plot_intermediate_result_names : list of str
-            Names of intermediate result entries to plot during refinement.
+            The list of intermediate result entries to plot during refinement.
             Allowed values: "residual", "contributions", "restraints", "chi2",
             "reduced_chi2". Default is None.
 
@@ -234,13 +237,13 @@ class SequentialCMIRunner:
             "plot_variable_names": plot_variable_names or [],
             "plot_result_names": plot_result_names or [],
             "plot_intermediate_result_names": plot_intermediate_result_names
-            or {},
+            or [],
         }
         self.show_plot = show_plot
         self._validate_inputs()
-        self._init_plots()
+        self._initialize_plots()
 
-    def _init_plots(self):
+    def _initialize_plots(self):
         whether_plot_y = self.inputs["whether_plot_y"]
         whether_plot_ycalc = self.inputs["whether_plot_ycalc"]
         plot_variable_names = self.inputs["plot_variable_names"]
