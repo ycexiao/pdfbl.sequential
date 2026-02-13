@@ -2,6 +2,6 @@ numpy
 diffpy.cmi
 scipy
 prompt_toolkit
-matplotlib
+matplotlib-base
 bg-mpl-stylesheets
 psutil
