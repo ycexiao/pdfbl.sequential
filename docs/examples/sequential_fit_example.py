@@ -1,6 +1,7 @@
 from pdfbl.sequential.sequential_cmi_runner import SequentialCMIRunner
 
-if __name__ == "__main__":
+
+def main():
     sts = SequentialCMIRunner()
     sts.load_inputs(
         input_data_dir="docs/examples/input_files",
@@ -44,3 +45,7 @@ if __name__ == "__main__":
     #     ),
     # )
     sts.run(mode="stream")
+
+
+if __name__ == "__main__":
+    main()
