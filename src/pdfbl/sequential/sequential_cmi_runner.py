@@ -476,8 +476,8 @@ class SequentialCMIRunner:
                     new_value
                 )
             for entry_name in self.visualization_data.get("results", {}):
-                fit_results = FitResults(self.adapter.recipe)
-                entry_value = getattr(fit_results, entry_name)
+                fitresults_dict = self.adapter.save_results(mode="dict")
+                entry_value = fitresults_dict.get(entry_name, None)
                 self.visualization_data["results"][entry_name]["ydata"].put(
                     entry_value
                 )

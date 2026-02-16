@@ -70,8 +70,6 @@ class PDFAdapter:
         """
         if queue is None:
             queue = Queue()
-        if key == "reduced_chi2":
-            key = "rchi2"  # FitResults uses "rchi2" as the attribute name
         self.intermediate_results[(key, step)] = queue
 
     def initialize_profile(
@@ -331,12 +329,17 @@ class PDFAdapter:
             The residual array.
         """
         residual = self.recipe.residual(p)
-        fitresults = None
+        fitresults_dict = None
         for (key, step), values in self.intermediate_results.items():
             if (self.iter_count % step) == 0:
-                if fitresults is None:
-                    fitresults = FitResults(self.recipe)
-                value = getattr(fitresults, key)
+                if fitresults_dict is None:
+                    fitresults_dict = self.save_results(mode="dict")
+                value = fitresults_dict.get(key, None)
+                if value is None:
+                    raise KeyError(
+                        f"{key} is not found in the fit results. "
+                        f"Available keys are: {list(fitresults_dict.keys())}"
+                    )
                 values.put(value)
         self.iter_count += 1
         return residual
