@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from typing import Literal
 
 from bg_mpl_stylesheets.styles import all_styles
-from diffpy.srfit.fitbase import FitResults
 from matplotlib import pyplot as plt
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
