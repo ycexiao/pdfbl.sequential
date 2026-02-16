@@ -70,6 +70,8 @@ class PDFAdapter:
         """
         if queue is None:
             queue = Queue()
+        if key == "reduced_chi2":
+            key = "rchi2"  # FitResults uses "rchi2" as the attribute name
         self.intermediate_results[(key, step)] = queue
 
     def initialize_profile(
@@ -252,6 +254,14 @@ class PDFAdapter:
                 - constrain variables of the scatters
                 - change symmetry constraints
         """
+
+        def modify_xyz_adp_name(parname, nth_phase):
+            parname, nth_atom = parname.split("_")
+            return f"{parname}_phase_{nth_phase+1}_atom_{int(nth_atom)+1}"
+
+        def modify_lat_delta_name(parname, nth_phase):
+            return f"{parname}_phase_{nth_phase+1}"
+
         recipe = FitRecipe()
         recipe.addContribution(self.contribution)
         qdamp = recipe.newVar("qdamp", fixed=False, value=0.04)
@@ -264,7 +274,9 @@ class PDFAdapter:
                 "delta2",
             ]:
                 par = getattr(pdfgenerator, pname)
-                recipe.addVar(par, name=pname + f"_{i+1}", fixed=False)
+                recipe.addVar(
+                    par, name=modify_lat_delta_name(pname, i), fixed=False
+                )
             if len(self.pdfgenerators) > 1:
                 recipe.addVar(
                     getattr(self.contribution, f"s{i+1}"),
@@ -277,11 +289,17 @@ class PDFAdapter:
             stru_parset = pdfgenerator.phase
             spacegroupparams = constrainAsSpaceGroup(stru_parset, spacegroup)
             for par in spacegroupparams.xyzpars:
-                recipe.addVar(par, name=par.name + f"_{i+1}", fixed=False)
+                recipe.addVar(
+                    par, name=modify_xyz_adp_name(par.name, i), fixed=False
+                )
             for par in spacegroupparams.latpars:
-                recipe.addVar(par, name=par.name + f"_{i+1}", fixed=False)
+                recipe.addVar(
+                    par, name=modify_lat_delta_name(par.name, i), fixed=False
+                )
             for par in spacegroupparams.adppars:
-                recipe.addVar(par, name=par.name + f"_{i+1}", fixed=False)
+                recipe.addVar(
+                    par, name=modify_xyz_adp_name(par.name, i), fixed=False
+                )
         recipe.addVar(self.contribution.s0, name="s0", fixed=False)
         recipe.fix("all")
         recipe.fithooks[0].verbose = 0
@@ -313,12 +331,13 @@ class PDFAdapter:
             The residual array.
         """
         residual = self.recipe.residual(p)
-        if self.intermediate_results is not None:
-            fitresults = FitResults(self.recipe)
-            for (key, step), values in self.intermediate_results.items():
-                if (self.iter_count % step) == 0:
-                    value = getattr(fitresults, key)
-                    values.put(value)
+        fitresults = None
+        for (key, step), values in self.intermediate_results.items():
+            if (self.iter_count % step) == 0:
+                if fitresults is None:
+                    fitresults = FitResults(self.recipe)
+                value = getattr(fitresults, key)
+                values.put(value)
         self.iter_count += 1
         return residual
 

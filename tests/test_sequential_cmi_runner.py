@@ -61,10 +61,10 @@ def test_run_sequential_cmi_runner(user_filesystem):
     input_data_folder = Path(__file__).parent / "data" / "input_data_dir"
     structure_path = Path(__file__).parent / "data" / "Ni.cif"
     refinable_variable_names = [
-        "a_1",
+        "a_phase_1",
         "s0",
-        "Uiso_0_1",
-        "delta2_1",
+        "Uiso_phase_1_atom_1",
+        "delta2_phase_1",
         "qdamp",
         "qbroad",
     ]
@@ -72,9 +72,9 @@ def test_run_sequential_cmi_runner(user_filesystem):
         "s0": 0.4,
         "qdamp": 0.04,
         "qbroad": 0.02,
-        "a_1": 3.52,
-        "Uiso_0_1": 0.005,
-        "delta2_1": 2,
+        "a_phase_1": 3.52,
+        "Uiso_phase_1_atom_1": 0.005,
+        "delta2_phase_1": 2,
     }
     runner = SequentialCMIRunner()
     runner.load_inputs(
@@ -106,10 +106,10 @@ def test_data_for_plot(user_filesystem):
     input_data_folder = Path(__file__).parent / "data" / "input_data_dir"
     structure_path = Path(__file__).parent / "data" / "Ni.cif"
     refinable_variable_names = [
-        "a_1",
+        "a_phase_1",
         "s0",
-        "Uiso_0_1",
-        "delta2_1",
+        "Uiso_phase_1_atom_1",
+        "delta2_phase_1",
         "qdamp",
         "qbroad",
     ]
@@ -117,9 +117,9 @@ def test_data_for_plot(user_filesystem):
         "s0": 0.4,
         "qdamp": 0.04,
         "qbroad": 0.02,
-        "a_1": 3.52,
-        "Uiso_0_1": 0.005,
-        "delta2_1": 2,
+        "a_phase_1": 3.52,
+        "Uiso_phase_1_atom_1": 0.005,
+        "delta2_phase_1": 2,
     }
     runner = SequentialCMIRunner()
     runner.load_inputs(
@@ -134,7 +134,7 @@ def test_data_for_plot(user_filesystem):
         dx=0.01,
         qmax=25,
         qmin=0.1,
-        plot_variable_names=["a_1"],
+        plot_variable_names=["a_phase_1"],
         plot_result_names=["residual"],
         plot_intermediate_result_names=["residual"],
         show_plot=False,
@@ -143,7 +143,7 @@ def test_data_for_plot(user_filesystem):
     assert "variables" in runner.visualization_data
     assert "results" in runner.visualization_data
     assert "intermediate_results" in runner.visualization_data
-    assert "a_1" in runner.visualization_data["variables"]
+    assert "a_phase_1" in runner.visualization_data["variables"]
     assert "residual" in runner.visualization_data["results"]
     assert "residual" in runner.visualization_data["intermediate_results"]
     runner.run(mode="batch")
