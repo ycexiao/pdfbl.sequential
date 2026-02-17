@@ -1,13 +1,10 @@
-import sys
 from pathlib import Path
 
 import numpy
+from helper import make_cmi_recipe
 from scipy.optimize import least_squares
 
 from pdfbl.sequential.pdfadapter import PDFAdapter
-
-sys.path.append(str(Path(__file__).parent / "diffpycmi_scripts.py"))
-from diffpycmi_scripts import make_recipe  # noqa: E402
 
 
 def test_pdfadapter():
@@ -16,12 +13,30 @@ def test_pdfadapter():
     # diffpy_cmi fitting
     structure_path = Path(__file__).parent / "data" / "Ni.cif"
     profile_path = Path(__file__).parent / "data" / "Ni.gr"
-    diffpycmi_recipe = make_recipe(str(structure_path), str(profile_path))
+    initial_pv_dict = {
+        "s0": 0.4,
+        "qdamp": 0.04,
+        "qbroad": 0.02,
+        "a_phase_1": 3.52,
+        "delta2_phase_1": 2,
+        "Uiso_phase_1_atom_1": 0.005,
+    }
+    variables_to_refine = [
+        "a_phase_1",
+        "s0",
+        "Uiso_phase_1_atom_1",
+        "delta2_phase_1",
+        "qdamp",
+        "qbroad",
+    ]
+    diffpycmi_recipe = make_cmi_recipe(
+        str(structure_path), str(profile_path), initial_pv_dict
+    )
     diffpycmi_recipe.fithooks[0].verbose = 0
     diffpycmi_recipe.fix("all")
-    tags = ["lat", "scale", "adp", "d2", "all"]
-    for tag in tags:
-        diffpycmi_recipe.free(tag)
+
+    for var_name in variables_to_refine:
+        diffpycmi_recipe.free(var_name)
         least_squares(
             diffpycmi_recipe.residual,
             diffpycmi_recipe.values,
@@ -38,39 +53,14 @@ def test_pdfadapter():
     adapter.initialize_structures([str(structure_path)])
     adapter.initialize_contribution()
     adapter.initialize_recipe()
-    initial_pdfadapter_pv_dict = {
-        "s0": 0.4,
-        "qdamp": 0.04,
-        "qbroad": 0.02,
-        "a_1": 3.52,
-        "Uiso_0_1": 0.005,
-        "delta2_1": 2,
-    }
-    adapter.set_initial_variable_values(initial_pdfadapter_pv_dict)
+    adapter.set_initial_variable_values(initial_pv_dict)
     adapter.refine_variables(
-        [
-            "a_1",
-            "s0",
-            "Uiso_0_1",
-            "delta2_1",
-            "qdamp",
-            "qbroad",
-        ]
+        variables_to_refine,
     )
-    diffpyname_to_adaptername = {
-        "fcc_Lat": "a_1",
-        "s1": "s0",
-        "fcc_ADP": "Uiso_0_1",
-        "Ni_Delta2": "delta2_1",
-        "Calib_Qdamp": "qdamp",
-        "Calib_Qbroad": "qbroad",
-    }
     pdfadapter_pv_dict = {}
     for pname, parameter in adapter.recipe._parameters.items():
         pdfadapter_pv_dict[pname] = parameter.value
-    for diffpy_pname, adapter_pname in diffpyname_to_adaptername.items():
-        assert numpy.isclose(
-            diffpy_pv_dict[diffpy_pname],
-            pdfadapter_pv_dict[adapter_pname],
-            atol=1e-5,
-        )
+    for var_name in variables_to_refine:
+        diffpy_value = diffpy_pv_dict[var_name]
+        pdfadapter_value = pdfadapter_pv_dict[var_name]
+        assert numpy.isclose(diffpy_value, pdfadapter_value, atol=1e-5)
