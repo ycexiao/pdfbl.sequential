@@ -74,6 +74,12 @@ To install using ``pip`` into your ``pdfbl.sequential_env`` environment, type ::
 
         pip install pdfbl.sequential
 
+But then you need to install its dependencies manually. Use the following commands ::
+
+        wget https://raw.githubusercontent.com/PDF-bl/pdfbl.sequential/main/requirements/conda.txt
+        conda install --file conda.txt
+        rm conda.txt
+
 If you prefer to install from sources, after installing the dependencies, obtain the source archive from
 `GitHub <https://github.com/pdf-bl/pdfbl.sequential/>`_. Once installed, ``cd`` into your ``pdfbl.sequential`` directory
 and run the following ::
