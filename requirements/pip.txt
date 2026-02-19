@@ -1,2 +1,6 @@
 numpy
-diffpy.cmi
+scipy
+prompt_toolkit
+bg-mpl-stylesheets
+psutil
+matplotlib
